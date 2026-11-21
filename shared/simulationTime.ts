@@ -1,0 +1,2 @@
+export const RESPONDER_HORIZON_MINUTES = 4 * 60;
+export const DAY_HORIZON_MINUTES = 24 * 60;

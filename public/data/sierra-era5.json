@@ -1,0 +1,346 @@
+{
+  "region": "Sierra Foothills, California",
+  "requested": {
+    "lat": 38.9,
+    "lng": -121.07
+  },
+  "sampled": {
+    "lat": 39,
+    "lng": -121
+  },
+  "start": "2006-01-01",
+  "end": "2025-12-31",
+  "retrievedAt": "2026-11-21T17:28:15.594Z",
+  "expected": 175320,
+  "missing": 0,
+  "model": "ERA5",
+  "units": "mph",
+  "source": "https://open-meteo.com/en/docs/historical-weather-api",
+  "all": {
+    "observations": 175320,
+    "calm": 2855,
+    "sectors": [
+      3687,
+      20615,
+      49588,
+      19210,
+      23781,
+      26591,
+      21230,
+      7763
+    ],
+    "p10": 2.2,
+    "median": 4.7,
+    "p90": 8,
+    "meanFrom": 130.96,
+    "concentration": 0.254
+  },
+  "months": [
+    {
+      "observations": 14880,
+      "calm": 322,
+      "sectors": [
+        454,
+        2606,
+        5016,
+        1888,
+        1769,
+        816,
+        1262,
+        747
+      ],
+      "p10": 1.9,
+      "median": 4.7,
+      "p90": 9.2,
+      "meanFrom": 93.05,
+      "concentration": 0.41
+    },
+    {
+      "observations": 13560,
+      "calm": 177,
+      "sectors": [
+        428,
+        1997,
+        3965,
+        1612,
+        2279,
+        968,
+        1473,
+        661
+      ],
+      "p10": 2.3,
+      "median": 5.1,
+      "p90": 9.9,
+      "meanFrom": 108.85,
+      "concentration": 0.315
+    },
+    {
+      "observations": 14880,
+      "calm": 164,
+      "sectors": [
+        380,
+        1679,
+        3670,
+        2095,
+        3023,
+        1683,
+        1480,
+        706
+      ],
+      "p10": 2.6,
+      "median": 5.4,
+      "p90": 9.11,
+      "meanFrom": 136.45,
+      "concentration": 0.318
+    },
+    {
+      "observations": 14400,
+      "calm": 158,
+      "sectors": [
+        386,
+        1616,
+        3329,
+        1538,
+        2300,
+        2168,
+        1990,
+        915
+      ],
+      "p10": 2.4,
+      "median": 5.1,
+      "p90": 8.4,
+      "meanFrom": 150.58,
+      "concentration": 0.206
+    },
+    {
+      "observations": 14880,
+      "calm": 205,
+      "sectors": [
+        301,
+        1506,
+        3004,
+        1696,
+        2431,
+        2788,
+        2063,
+        886
+      ],
+      "p10": 2.3,
+      "median": 5,
+      "p90": 8,
+      "meanFrom": 169.01,
+      "concentration": 0.248
+    },
+    {
+      "observations": 14400,
+      "calm": 227,
+      "sectors": [
+        149,
+        1147,
+        3163,
+        1532,
+        2091,
+        3209,
+        2252,
+        630
+      ],
+      "p10": 2.3,
+      "median": 4.8,
+      "p90": 7.4,
+      "meanFrom": 177.83,
+      "concentration": 0.281
+    },
+    {
+      "observations": 14880,
+      "calm": 221,
+      "sectors": [
+        30,
+        555,
+        4044,
+        1529,
+        1755,
+        4784,
+        1828,
+        134
+      ],
+      "p10": 2.1,
+      "median": 4.4,
+      "p90": 6.5,
+      "meanFrom": 177.75,
+      "concentration": 0.387
+    },
+    {
+      "observations": 14880,
+      "calm": 220,
+      "sectors": [
+        47,
+        638,
+        4539,
+        1444,
+        1560,
+        4460,
+        1823,
+        149
+      ],
+      "p10": 2.2,
+      "median": 4.3,
+      "p90": 6.3,
+      "meanFrom": 169.69,
+      "concentration": 0.337
+    },
+    {
+      "observations": 14400,
+      "calm": 240,
+      "sectors": [
+        152,
+        1446,
+        4495,
+        1176,
+        1597,
+        2540,
+        2288,
+        466
+      ],
+      "p10": 2.1,
+      "median": 4.4,
+      "p90": 7,
+      "meanFrom": 140.17,
+      "concentration": 0.22
+    },
+    {
+      "observations": 14880,
+      "calm": 226,
+      "sectors": [
+        476,
+        2256,
+        4808,
+        1185,
+        1387,
+        1534,
+        2099,
+        909
+      ],
+      "p10": 2.2,
+      "median": 4.5,
+      "p90": 7.6,
+      "meanFrom": 90.85,
+      "concentration": 0.236
+    },
+    {
+      "observations": 14400,
+      "calm": 320,
+      "sectors": [
+        395,
+        2608,
+        4727,
+        1526,
+        1576,
+        955,
+        1511,
+        782
+      ],
+      "p10": 1.9,
+      "median": 4.4,
+      "p90": 8,
+      "meanFrom": 90.3,
+      "concentration": 0.36
+    },
+    {
+      "observations": 14880,
+      "calm": 375,
+      "sectors": [
+        489,
+        2561,
+        4828,
+        1989,
+        2013,
+        686,
+        1161,
+        778
+      ],
+      "p10": 1.8,
+      "median": 4.5,
+      "p90": 9.2,
+      "meanFrom": 95.39,
+      "concentration": 0.417
+    }
+  ],
+  "seasons": {
+    "DJF": {
+      "observations": 43320,
+      "calm": 874,
+      "sectors": [
+        1371,
+        7164,
+        13809,
+        5489,
+        6061,
+        2470,
+        3896,
+        2186
+      ],
+      "p10": 2,
+      "median": 4.8,
+      "p90": 9.4,
+      "meanFrom": 98.01,
+      "concentration": 0.38
+    },
+    "MAM": {
+      "observations": 44160,
+      "calm": 527,
+      "sectors": [
+        1067,
+        4801,
+        10003,
+        5329,
+        7754,
+        6639,
+        5533,
+        2507
+      ],
+      "p10": 2.5,
+      "median": 5.1,
+      "p90": 8.5,
+      "meanFrom": 150.63,
+      "concentration": 0.25
+    },
+    "JJA": {
+      "observations": 44160,
+      "calm": 668,
+      "sectors": [
+        226,
+        2340,
+        11746,
+        4505,
+        5406,
+        12453,
+        5903,
+        913
+      ],
+      "p10": 2.2,
+      "median": 4.5,
+      "p90": 6.8,
+      "meanFrom": 175.04,
+      "concentration": 0.335
+    },
+    "SON": {
+      "observations": 43680,
+      "calm": 786,
+      "sectors": [
+        1023,
+        6310,
+        14030,
+        3887,
+        4560,
+        5029,
+        5898,
+        2157
+      ],
+      "p10": 2.1,
+      "median": 4.4,
+      "p90": 7.6,
+      "meanFrom": 103.19,
+      "concentration": 0.252
+    }
+  }
+}
