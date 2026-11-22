@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import type { AgentProgress, Trace } from '../shared/contracts';
-import { firelineParametersSchema, type FirelineCandidate } from '../shared/firelineContracts';
+import { MAX_FIRELINE_STUDY_RADIUS_METERS, firelineParametersSchema, type FirelineCandidate } from '../shared/firelineContracts';
 import { acres, archiveWeather, compareFootprints, compareWithHistory, historicalWeatherUrl, historyCases, historyPolygon, makeReplayStudy, matchedHistory, replayCandidate, replayLineContact } from '../shared/history';
 import { buildHistoricalPlayback, practiceOrigin, practiceSeed, type HistoricalPlayback } from '../shared/historicalPlayback';
 import { historicalInterventionInput } from '../shared/historicalIntervention';
@@ -54,7 +54,7 @@ export async function runHistoryAgent(input: ReplayRequest, invoke: Complete = c
   let paired: ReturnType<typeof simulateIntervention> | undefined;
   function getInterventionConfiguration() {
     if (!branchSeed || !options || !allowBranch) throw Error('Open Practice Intervention and supply a branch configuration.');
-    for (const line of options.barriers) validateCandidateLine(line.geometry.coordinates, fire.ignition, 25000);
+    for (const line of options.barriers) validateCandidateLine(line.geometry.coordinates, fire.ignition, MAX_FIRELINE_STUDY_RADIUS_METERS);
     return { branchSeed, options };
   }
   function computeInterventionInput() {
@@ -161,8 +161,8 @@ export async function runHistoryAgent(input: ReplayRequest, invoke: Complete = c
   add('generate_replay_firelines', 'Generate exactly three different experimental lines on the seeded model. Use one of each strategy.', geometry, candidateArgs, generate);
   function evaluateLines() {
     const lines = [...candidates.values()].map((candidate) => ({ id: candidate.id, line: candidate.geometry.coordinates }));
-    if (input.line) lines.push({ id: 'drawn-line', line: validateCandidateLine(input.line, historyCases[data.id].ignition, 25000).coordinates });
-    input.lines?.forEach((line, index) => lines.push({ id: 'existing-candidate-' + (index + 1), line: validateCandidateLine(line, fire.ignition, 25000).coordinates }));
+    if (input.line) lines.push({ id: 'drawn-line', line: validateCandidateLine(input.line, fire.ignition, MAX_FIRELINE_STUDY_RADIUS_METERS).coordinates });
+    input.lines?.forEach((line, index) => lines.push({ id: 'existing-candidate-' + (index + 1), line: validateCandidateLine(line, fire.ignition, MAX_FIRELINE_STUDY_RADIUS_METERS).coordinates }));
     if (!lines.length) throw new Error('Generate or draw a line before evaluating crossings.');
     return lines.map(({ id, line }) => ({ id, baseline: replayLineContact(getStudy(), line, 'baseline'), branch: replayLineContact(getStudy(), line, 'branch') }));
   }

@@ -4,7 +4,7 @@ import { STEP, coordinate, spreadMetersPerMinute, unwrap } from './engine';
 import type { ReplayShape } from './history';
 import { BARRIER_ASSUMPTION, type BarrierLine } from './interventionContracts';
 import { SQUARE_METERS_PER_ACRE } from './businessExposure';
-import { RESPONDER_HORIZON_MINUTES } from './simulationTime';
+import { DAY_HORIZON_MINUTES } from './simulationTime';
 
 export const MAX_GRID_CELLS = 36_000;
 export const DEFAULT_CELL_METERS = 75;
@@ -228,9 +228,16 @@ function polygonAt(grid: Grid, times: Float64Array, minute: number) {
 function snapshots(grid: Grid, input: InterventionInput, times: Float64Array) {
   const initial = { minute: 0, shape: input.seed, acres: area(input.seed) / SQUARE_METERS_PER_ACRE };
   const frames: { minute: number; shape: ReplayShape; acres: number }[] = [initial];
+  const changedSamples = new Set<number>();
+  for (const arrival of times) if (Number.isFinite(arrival)) changedSamples.add(Math.ceil(arrival / STEP) * STEP);
   let coveredAt = 0;
   for (const cell of grid.boundary) coveredAt = Math.max(coveredAt, times[cell]);
   for (let minute = STEP; minute <= input.duration; minute += STEP) {
+    // The first grid frame retains the exact seed. Later unchanged cell sets can reuse it.
+    if (minute > STEP && !changedSamples.has(minute)) {
+      frames.push({ ...frames.at(-1)!, minute });
+      continue;
+    }
     const raster = polygonAt(grid, times, minute);
     const shape = minute >= coveredAt ? (booleanValid(raster) ? raster : union(featureCollection([raster, raster]))) :
       union(featureCollection([raster, input.seed]));
@@ -241,7 +248,7 @@ function snapshots(grid: Grid, input: InterventionInput, times: Float64Array) {
 }
 
 export function simulateIntervention(input: InterventionInput) {
-  if (input.duration < STEP || input.duration > RESPONDER_HORIZON_MINUTES || input.duration % STEP || input.weather.length < input.duration / STEP) throw new Error('Invalid intervention clock.');
+  if (input.duration < STEP || input.duration > DAY_HORIZON_MINUTES || input.duration % STEP || input.weather.length < input.duration / STEP) throw new Error('Invalid intervention clock.');
   const grid = gridFor(input);
   const gates = barrierConnections(grid.mesh, grid.lines);
   const { times: baselineTimes } = arrivals(grid, input.duration);

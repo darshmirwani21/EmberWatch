@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildHistoricalPlayback, practiceOrigin, practiceSeed } from '../../shared/historicalPlayback';
+import { buildHistoricalPlayback, historicalBranchDuration, practiceOrigin, practiceSeed } from '../../shared/historicalPlayback';
+import { DAY_HORIZON_MINUTES } from '../../shared/simulationTime';
+import { historicalInterventionInput } from '../../shared/historicalIntervention';
+import { simulateIntervention } from '../../shared/interventionSimulation';
+import { replayRequest } from '../../shared/historyContracts';
 import { downwind, project } from '../../shared/engine';
 import { compareFootprints, historyCases, historyPolygon, makeReplayStudy } from '../../shared/history';
 import { hasHistoryContext, loadHistory, runHistoryAgent } from '../../server/historyAgent';
@@ -17,7 +21,11 @@ describe('historical playback', () => {
       expect(next.model?.acres).toBeGreaterThan(0);
       expect(start.context).toBeDefined();
       weather.add(JSON.stringify(start.context));
-      expect(run.modelEnd).toBe(360);
+      expect(run.modelEnd).toBe(DAY_HORIZON_MINUTES);
+      expect(run.reconstruction).toHaveLength(289);
+      const endOfDay = run.frames.find((frame) => frame.time === start.time + 86_400_000)!;
+      expect(endOfDay.model!.acres).toBeGreaterThan(run.reconstruction[24].acres);
+      expect(endOfDay.newRecord).toBeUndefined();
     }
     expect(weather.size).toBe(3);
   });
@@ -74,6 +82,27 @@ describe('historical playback', () => {
     const surveyed = makeReplayStudy(data, practiceSeed(recorded), { speedMph: 10, fromDeg: 0 }, 60);
     expect(compareFootprints(historyPolygon(recorded.newRecord!), surveyed.shape('baseline', 0)).iou).toBeCloseTo(1);
   });
+
+  it('ends a historical counterfactual started at hour 6 at the first-day endpoint', async () => {
+    const data = await loadHistory('mosquito');
+    const records = structuredClone(data.records);
+    const fire = historyCases[data.id];
+    const frame = buildHistoricalPlayback(data).frames.find((entry) => entry.model?.minute === 360)!;
+    const seed = practiceSeed(frame);
+    const duration = historicalBranchDuration(fire.started, frame.at);
+    const wind = { speedMph: 20, fromDeg: 315 };
+    const barriers = [{ id: 'history', readyMinute: 300, geometry: { type: 'LineString' as const,
+      coordinates: [project(fire.ignition, 145, 12_000), project(fire.ignition, 150, 12_000)] } }];
+    const request = replayRequest.parse({ caseId: data.id, replayAt: frame.at, practicing: true, question: 'Compare the final sample.',
+      workflow: 'barrier', wind, duration, minute: 1080, intervention: { barriers, manualWind: true } });
+    const result = simulateIntervention(historicalInterventionInput(data, seed, wind, duration, request.intervention!));
+    expect(duration).toBe(1080);
+    expect(result.baseline[0].shape).toEqual(seed.model!.polygon);
+    expect(result.baseline.at(-1)!.minute).toBe(1080);
+    expect(result.intervention.at(-1)!.minute).toBe(1080);
+    expect(result.intervention.at(-1)!.acres).toBeGreaterThan(result.intervention[24].acres);
+    expect(data.records).toEqual(records);
+  }, 20_000);
 
   it('validates the selected archive clock and exposes time-aligned ERA5 and modeled evidence', async () => {
     const data = await loadHistory('eaton');

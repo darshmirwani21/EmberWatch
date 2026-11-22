@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { BARRIER_ASSUMPTION } from '../shared/interventionContracts';
 import { interventionComparison, lineOutcome, simulateIntervention } from '../shared/interventionSimulation';
 import { scenarioInterventionInput } from '../shared/scenarioIntervention';
-import { RESPONDER_HORIZON_MINUTES } from '../shared/simulationTime';
+import { EXTENDED_PLAYBACK_THRESHOLD_MINUTES } from '../shared/simulationTime';
 import { analyzeLine, lineReference, pointContact, simulate, STEP, type Contact, type Snapshot } from '../shared/engine';
 import type { AgentProgress, AgentResult, Fact, Investigation, Trace } from '../shared/contracts';
 import { SMOKE_LIMITATION, VALUE_LIMITATION, type BusinessEvidence } from '../shared/businessContracts';
@@ -57,7 +57,7 @@ const registry = [
         metric(slotLabel(scenario) + ' final footprint', end.acres, 'ac'), metric(slotLabel(scenario) + ' maximum radius', end.maxRadiusMeters, 'm'),
         metric('Horizon', end.minute, 'min'),
         ...(businessMinute === undefined ? [] : [metric(slotLabel(scenario) + ' footprint at minute ' + businessMinute, snapshots[businessMinute / 5].acres, 'ac')]),
-      ], data: snapshots.filter((s) => end.minute <= RESPONDER_HORIZON_MINUTES || s.minute % 60 === 0 || s.minute === end.minute || s.minute === businessMinute)
+      ], data: snapshots.filter((s) => end.minute <= EXTENDED_PLAYBACK_THRESHOLD_MINUTES || s.minute % 60 === 0 || s.minute === end.minute || s.minute === businessMinute)
         .map((s) => ({ minute: s.minute, acres: Number(s.acres.toFixed(2)) })),
       interpretations: ['The modeled footprint expands from ignition as each ray accumulates growth.', 'Wind changes redistribute new radial growth while preserving the earlier footprint.'] };
     }),
@@ -106,17 +106,24 @@ const registry = [
         metric('Line ' + result.id + ' first-contact intersections', result.intersections.length, 'points'),
       ]), interpretations: [verdict, 'This geometric screening uses the unimpeded radial run.'] };
     }),
-  tool('compare_barrier_intervention', 'Read the selected minute of the active Responder Lab baseline and fireline intervention.', noArgs, (_, ctx) => {
+  tool('compare_barrier_intervention', 'Read the selected minute and final horizon of the active Responder Lab baseline and fireline intervention.', noArgs, (_, ctx) => {
     const branch = ctx.input.intervention;
     if (!branch) throw new Error('Start a Responder intervention before comparing effects.');
     const offset = branch.minute - branch.start;
     const seed = ctx.snapshots('A')[branch.start / STEP];
     const lines = [...ctx.lines].map(([id, line]) => ({ ...line, id }));
-    const result = interventionComparison(simulateIntervention(scenarioInterventionInput(ctx.input.scenario, seed, lines)), offset);
+    const run = simulateIntervention(scenarioInterventionInput(ctx.input.scenario, seed, lines));
+    const result = interventionComparison(run, offset);
+    const end = ctx.input.scenario.durationMinutes;
+    const final = interventionComparison(run, end - branch.start);
     return { source: 'SIMULATED · EmberWatch barrier grid', facts: [
       metric('Matched baseline', result.baselineAcres, 'ac'), metric('Barrier intervention', result.interventionAcres, 'ac'),
       metric('Modeled burned area avoided', result.differenceAcres, 'ac'), metric('Modeled area reduction', result.reductionPercent, '%'),
       metric('Model-to-model IoU', result.iou * 100, '%'),
+      metric('Playback minute', branch.minute, 'min'), metric('Final scenario minute', end, 'min'),
+      ...(branch.minute === end ? [] : [metric('Final baseline', final.baselineAcres, 'ac'), metric('Final intervention', final.interventionAcres, 'ac'),
+        metric('Final area difference', final.differenceAcres, 'ac'), metric('Final area reduction', final.reductionPercent, '%'),
+        metric('Final model-to-model IoU', final.iou * 100, '%')]),
       ...result.lineContacts.map(({ id, intervention }) =>
         metric('Line ' + id + ' first intervention contact', intervention === null ? null : branch.start + intervention, 'min')),
     ], interpretations: [

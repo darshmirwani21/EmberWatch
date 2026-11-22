@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bell, BriefcaseBusiness, ChevronDown, CircleHelp, ClipboardList, Crosshair, Flag, Flame, FlaskConical, History, Wind, Map as MapIcon, MapPin, Play, Radio, RotateCcw, Route, Shield, Sparkles, X } from 'lucide-react';
 import { booleanPointInPolygon, length, lineString } from '@turf/turf';
-import { DAY_HORIZON_MINUTES, RESPONDER_HORIZON_MINUTES } from '../shared/simulationTime';
+import { DAY_HORIZON_MINUTES, EXTENDED_PLAYBACK_THRESHOLD_MINUTES, elapsedClock, playbackStride } from '../shared/simulationTime';
 import { BARRIER_ASSUMPTION } from '../shared/interventionContracts';
 import { interventionComparison, lineOutcome } from '../shared/interventionSimulation';
 import { scenarioInterventionInput } from '../shared/scenarioIntervention';
+import { InterventionHorizonSummary } from './InterventionHorizonSummary';
 import { useIntervention } from './useIntervention';
 import type { ControlLine, Coordinate, Mode, Point, Scenario, Weather } from '../shared/contracts';
 import { MAX_ASSET_VERTICES, PROPERTY_BOUNDARY } from '../shared/businessContracts';
@@ -140,6 +141,7 @@ export function App() {
   const baselineFrame = branchMinute < 0 ? undefined : paired?.baseline[branchMinute / STEP];
   const fireAcres = branchFrame?.acres ?? snapshot.acres;
   const result = paired && branchFrame ? interventionComparison(paired, branchMinute) : undefined;
+  const finalComparison = useMemo(() => paired && interventionComparison(paired, paired.baseline.at(-1)!.minute), [paired]);
   const bSnapshot = comparisonSnapshots?.[snapshot.minute / STEP];
   const prior = snapshots[Math.max(0, snapshot.minute / STEP - 1)];
   const growthFrames = branchFrame ? paired!.intervention : snapshots;
@@ -168,12 +170,12 @@ export function App() {
   }, [initialReplay]);
   useEffect(() => {
     if (!playing || historyActive) return;
-    const stride = speed >= 60 ? 3 : speed >= 24 ? 2 : 1;
+    const stride = playbackStride(speed);
     const timer = setInterval(() => setMinute((value) => Math.min(value + stride * STEP, scenario.durationMinutes)), 800 * stride / speed);
     return () => clearInterval(timer);
   }, [playing, speed, scenario.durationMinutes, historyActive]);
   useEffect(() => { if (minute >= scenario.durationMinutes || interventionRun.running) play(false); }, [minute, scenario.durationMinutes, interventionRun.running]);
-  useEffect(() => { if (scenario.durationMinutes <= RESPONDER_HORIZON_MINUTES) setSpeed((value) => Math.min(value, 4)); }, [scenario.durationMinutes]);
+  useEffect(() => { if (scenario.durationMinutes <= EXTENDED_PLAYBACK_THRESHOLD_MINUTES) setSpeed((value) => Math.min(value, 4)); }, [scenario.durationMinutes]);
   useEffect(() => {
     if (!mobile && !tabs[mode].some((item) => item.key === tab)) setTab(defaultTab(mode));
     if (!mobile) { setSheetOpen(false); setExpanded(false); }
@@ -224,7 +226,7 @@ export function App() {
     registry.openDemo();
     setMode('business'); setTab('assets'); setSheetOpen(false);
     setInterventionStart(undefined);
-    setScenario(vineyardDemo.scenario);
+    setScenario({ ...vineyardDemo.scenario, durationMinutes: DAY_HORIZON_MINUTES });
     setExtendedDuration(DAY_HORIZON_MINUTES); setBusinessLocation(vineyardDemo.location);
     setFictional(true); setScenarioLabel('FICTIONAL VINEYARD SCENARIO');
     setImportedWeather(undefined); setArchivedWind(undefined); setCompare(false);
@@ -480,11 +482,12 @@ export function App() {
             {civilian && point && <small>B point contact · {contactLabel(bContact)}</small>}</div>}
         </Section>
         {responder && <Section title="Barrier comparison">
-          {interventionStart !== undefined && <p>Branch starts at minute {interventionStart}.</p>}
+          {interventionStart !== undefined && <p>Branch runs from {elapsedClock(interventionStart)} to {elapsedClock(scenario.durationMinutes)}.</p>}
           {interventionRun.running && <p role="status">Computing baseline and intervention…</p>}
           {interventionRun.error && <p role="alert">Intervention results could not be calculated. {interventionRun.error}</p>}
           {paired && !result && <p>Move the clock to the branch start or later.</p>}
           {result && <>
+            <p>{minute === scenario.durationMinutes ? 'Final sample' : 'Playback sample'} · {elapsedClock(minute)}</p>
             <div className="history-numbers">
               <div><small>Modeled baseline</small><strong>{decimal(result.baselineAcres, 2)} ac</strong></div>
               <div><small>Barrier intervention</small><strong>{decimal(result.interventionAcres, 2)} ac</strong></div>
@@ -498,6 +501,7 @@ export function App() {
                 {line.intervention !== null && ' First modeled intervention contact by minute ' + (interventionStart! + line.intervention) + '.'}</p>;
             })}
           </>}
+          {finalComparison && minute !== scenario.durationMinutes && <InterventionHorizonSummary comparison={finalComparison} end={elapsedClock(scenario.durationMinutes)}/>}
           {interventionStart === undefined && <p>Open Fireline tools to run a comparison from the selected minute.</p>}
           <p className="safety-note">{BARRIER_ASSUMPTION}</p>
         </Section>}
@@ -686,7 +690,7 @@ export function App() {
           canFinish={drawingAsset ? registry.draft.length >= 3 : editingCandidate || (hasLineDraft ? new Set(draft.map((position) => position.join(','))).size >= 2 : sketching)}/>}
       </div>
       {!mobile && <aside className="right-panel" aria-label="Scenario metrics">{historyActive ? (tab === 'insights' ? history.summaryPanel : history.panels.analysis) : metricContent}</aside>}
-      {historyActive ? history.timeline : <SimulationDock mobile={mobile} snapshot={snapshot} duration={scenario.durationMinutes} waiting={interventionRun.running} playing={playing} speed={speed} setSpeed={setSpeed}
+      {historyActive ? history.timeline : <SimulationDock mobile={mobile} snapshot={snapshot} duration={scenario.durationMinutes} clockFormat={responder} waiting={interventionRun.running} playing={playing} speed={speed} setSpeed={setSpeed}
         markers={markers} metrics={[
           decimal(fireAcres) + ' acres',
           responder ? decimal(expansionRate(rateStart, rateEnd), 2) + ' ac/min' :

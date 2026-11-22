@@ -5,7 +5,7 @@ import type { Coordinate, Point, Scenario, Wind } from './contracts';
 import { coordinate, interval, project, simulate, STEP } from './engine';
 import { SQUARE_METERS_PER_ACRE } from './businessExposure';
 import { generateCandidate, makeFirelineStudy } from '../src/engine/firelineCandidates';
-import type { FirelineParameters, FirelineRequest } from './firelineContracts';
+import { MAX_FIRELINE_STUDY_RADIUS_METERS, type FirelineParameters, type FirelineRequest } from './firelineContracts';
 import type { PracticeSeed } from './historicalPlayback';
 
 export const historicalWeatherUrl = 'https://open-meteo.com/en/docs/historical-weather-api';
@@ -81,7 +81,7 @@ export function makeReplayStudy(dataset: HistoricDataset, input: HistoricRecord 
 }
 type ReplayStudy = ReturnType<typeof makeReplayStudy>;
 export function replayCandidate(study: ReplayStudy, parameters: FirelineParameters, duration = study.duration) {
-  const request: FirelineRequest = { scenario: study.scenario, minute: 0, horizon: duration, radiusMeters: 25000 };
+  const request: FirelineRequest = { scenario: study.scenario, minute: 0, horizon: duration, radiusMeters: MAX_FIRELINE_STUDY_RADIUS_METERS };
   return generateCandidate(request, parameters, makeFirelineStudy(request, study.baseline));
 }
 export function replayLineContact(study: ReplayStudy, coordinates: Coordinate[], kind: 'baseline' | 'branch') {

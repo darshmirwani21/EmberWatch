@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DAY_HORIZON_MINUTES } from './simulationTime';
 import { interventionOptions } from './interventionContracts';
 import { positionSchema } from './contracts';
 
@@ -34,8 +35,8 @@ export const replayRequest = z.strictObject({
   question: z.string().trim().min(3).max(700),
   workflow: z.enum(['alternatives', 'refine', 'replay', 'barrier']).optional(),
   wind: z.strictObject({ fromDeg: z.number().min(0).max(359), speedMph: z.number().min(0).max(100) }),
-  duration: z.number().int().min(30).max(240).multipleOf(5),
-  minute: z.number().int().min(0).max(240).multipleOf(5).optional(),
+  duration: z.number().int().min(5).max(DAY_HORIZON_MINUTES).multipleOf(5),
+  minute: z.number().int().min(0).max(DAY_HORIZON_MINUTES).multipleOf(5).optional(),
   line: z.array(positionSchema).min(2).max(32).optional(),
   intervention: interventionOptions.optional(),
   lines: z.array(z.array(positionSchema).min(2).max(32)).max(3).optional(),

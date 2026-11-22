@@ -1,5 +1,8 @@
 import { z } from 'zod';
+import { DAY_HORIZON_MINUTES } from './simulationTime';
 import { pointSchema, positionSchema, scenarioSchema } from './contracts';
+
+export const MAX_FIRELINE_STUDY_RADIUS_METERS = 150_000;
 
 export const strategySchema = z.enum(['crosswind', 'perimeter-offset', 'shift-corridor']);
 export const firelineParametersSchema = z.strictObject({
@@ -9,10 +12,10 @@ export const firelineParametersSchema = z.strictObject({
   bearingAdjustment: z.number().int().min(-60).max(60),
   anchorPercent: z.number().int().min(20).max(85),
 });
-const time = z.number().int().min(0).max(240).multipleOf(5);
+const time = z.number().int().min(0).max(DAY_HORIZON_MINUTES).multipleOf(5);
 export const firelineRequestSchema = z.strictObject({
   scenario: scenarioSchema, minute: time, horizon: time,
-  radiusMeters: z.number().int().min(2000).max(25000),
+  radiusMeters: z.number().int().min(2000).max(MAX_FIRELINE_STUDY_RADIUS_METERS),
   refine: z.boolean().optional(),
 }).refine((request) => request.minute <= request.horizon && request.horizon <= request.scenario.durationMinutes, 'Select an interval inside the simulation.');
 export type FirelineRequest = z.infer<typeof firelineRequestSchema>;
@@ -27,7 +30,7 @@ const geometrySchema = z.strictObject({ type: z.literal('LineString'), coordinat
 export const candidateSchema = z.strictObject({
   id: z.string().regex(/^[a-z0-9-]{1,64}$/),
   geometry: geometrySchema, original: geometrySchema, parameters: firelineParametersSchema,
-  studyCenter: pointSchema, studyRadiusMeters: z.number().int().min(2000).max(25000),
+  studyCenter: pointSchema, studyRadiusMeters: z.number().int().min(2000).max(MAX_FIRELINE_STUDY_RADIUS_METERS),
   horizon: time, provenance: z.enum(['geometric', 'nemotron']),
 });
 export const firelineExplanationSchema = z.strictObject({

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronUp, CloudSun, Crosshair, ExternalLink, Flag, Plus, Trash2 } from 'lucide-react';
-import { DAY_HORIZON_MINUTES, RESPONDER_HORIZON_MINUTES } from '../shared/simulationTime';
+import { DAY_HORIZON_MINUTES } from '../shared/simulationTime';
 import type { ControlLine, Coordinate, Mode, OfficialAlert, Point, Scenario, SourceResult, Weather, Wind } from '../shared/contracts';
 import { contactLabel, downwind, lineReference, type analyzeLine, type Snapshot } from '../shared/engine';
 import { api, decimal, Disclosure, Section, Slider, timeLabel } from './ui';
@@ -41,7 +41,7 @@ export function ScenarioControls({ scenario, snapshot, change, setIgnition, setP
       <WindControls wind={snapshot.activeWind} change={activeShift ? editShiftWind : editInitialWind} />
       <Slider label="Relative humidity" value={scenario.humidity} max={100} suffix="%" change={(humidity) => change({ ...scenario, humidity })}/>
       <Slider label="Fuel dryness" value={Math.round(scenario.dryness * 100)} max={100} suffix="%" change={(n) => change({ ...scenario, dryness: n / 100 })}/>
-      <Slider label="Horizon" value={scenario.durationMinutes} min={5} max={mode === 'responder' ? RESPONDER_HORIZON_MINUTES : DAY_HORIZON_MINUTES} step={5} suffix=" min"
+      <Slider label="Horizon" value={scenario.durationMinutes} min={5} max={DAY_HORIZON_MINUTES} step={5} suffix=" min"
         change={(durationMinutes) => change({ ...scenario, durationMinutes, shift: shift ? { ...shift, minute: Math.min(shift.minute, durationMinutes) } : undefined })}/>
     </Section>
     {!leadWithShift && shiftControls}
@@ -162,8 +162,8 @@ export function LinePanel({ lines, selectedId, draft, isDrawing, isEditing, stat
       <label className="field">Annotation type<select value={selected.type} onChange={(event) => update({ ...selected, type: event.target.value as ControlLine['type'] })}>
         {(['Handline example', 'Road example', 'Fuel break example', 'Other example'] as const).map((option) => <option key={option}>{option}</option>)}</select></label>
       <div className="paired">
-        <label className="field">Assumed completion<input type="number" placeholder="Minute" min={0} max={RESPONDER_HORIZON_MINUTES} step={1} value={selected.completionMinute ?? ''}
-          onChange={(event) => update({ ...selected, completionMinute: event.target.value === '' ? undefined : Math.round(Math.max(0, Math.min(RESPONDER_HORIZON_MINUTES, +event.target.value))) })}/></label>
+        <label className="field">Assumed completion<input type="number" placeholder="Minute" min={0} max={DAY_HORIZON_MINUTES} step={1} value={selected.completionMinute ?? ''}
+          onChange={(event) => update({ ...selected, completionMinute: event.target.value === '' ? undefined : Math.round(Math.max(0, Math.min(DAY_HORIZON_MINUTES, +event.target.value))) })}/></label>
         <label className="field">Color<input type="color" value={selected.color} onChange={(event) => update({ ...selected, color: event.target.value })}/></label>
       </div>
       <div className="button-row"><button onClick={edit}>Edit vertices</button><button onClick={remove}><Trash2 size={15}/>Delete line</button></div>

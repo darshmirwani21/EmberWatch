@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Crosshair, FlaskConical, LoaderCircle, Route, Sparkles } from 'lucide-react';
 import { firelineLimitations, generationResultSchema, type FirelineCandidate, type FirelineGeneration } from '../shared/firelineContracts';
 import type { AgentProgress, Coordinate, Scenario, Trace } from '../shared/contracts';
+import { DAY_HORIZON_MINUTES } from '../shared/simulationTime';
 import { contactLabel, STEP, type Contact, type Snapshot } from '../shared/engine';
 import { streamAgentRequest } from './agentStream';
 import { candidateModified, firelineStrategies, generateGeometricFirelines, makeFirelineStudy, scenarioIdFor, updateCandidateGeometry } from './engine/firelineCandidates';
@@ -124,7 +125,7 @@ export function FirelineIntelligence({ firelines, snapshot, scenario, edit, zoom
         <span>Minute <b>{snapshot.minute}</b></span><span>Wind <b>{snapshot.activeWind.speedMph} mph FROM {snapshot.activeWind.fromDeg}°</b></span>
         <span>{scenario.shift ? 'Scenario shift at ' + scenario.shift.minute + ' min' : 'Steady scenario wind'}</span><span>Through <b>{f.horizon} min</b></span>
       </div>
-      <Slider label="Look ahead" value={f.lookAhead} min={5} max={120} step={5} suffix=" min" change={f.setLookAhead}/>
+      <Slider label="Look ahead" value={f.lookAhead} min={5} max={DAY_HORIZON_MINUTES} step={5} suffix=" min" change={f.setLookAhead}/>
       <Slider label="Study radius" value={f.radiusMeters / 1000} min={2} max={25} suffix=" km" change={(km) => f.setRadius(km * 1000)}/>
       <label className="check"><input type="checkbox" checked={f.refine} onChange={(event) => f.setRefine(event.target.checked)}/>Include one Nemotron refinement</label>
       <div className="fireline-actions">

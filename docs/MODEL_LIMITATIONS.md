@@ -15,7 +15,7 @@ wind = clamp(1 + 0.045 × windMph × cos(ray − downwind), 0.20, 3.80)
 increment = base × fuel × humidity × wind × 5 minutes
 ```
 
-The footprint at a shift marker reflects growth accumulated under earlier wind. Starting at the marker, subsequent growth uses the shifted wind. The radial model omits terrain, fuel maps, spotting, smoke, suppression and uncertainty calibration. The proximity outline adds 300 meters to every ray for visual context. Civilian and Business calculate 289 snapshots through minute 1,440 at the default horizon. Spread uses the scenario inputs and its configured wind shift across this interval.
+The footprint at a shift marker reflects growth accumulated under earlier wind. Starting at the marker, subsequent growth uses the shifted wind. The radial model omits terrain, fuel maps, spotting, smoke, suppression and uncertainty calibration. The proximity outline adds 300 meters to every ray for visual context. Civilian, Business, and Responder Lab calculate 289 snapshots through minute 1,440 at the default horizon. Spread uses the scenario inputs and its configured wind shift across this interval.
 
 Contact is reported in five-minute intervals. A first sample at 30 minutes is shown as 25–30 minutes. In the radial preview, Turf calculates line length, perimeter intersections and length inside the footprint. Geometric overlap can occur between samples or when the line is enclosed.
 
@@ -23,7 +23,7 @@ Contact is reported in five-minute intervals. A first sample at 30 minutes is sh
 
 Normal Responder runs seed the branch from the paused radial footprint. Historical Replay uses the latest usable observed outline or the labeled reconstruction at the branch point. The same grid engine computes an unimpeded baseline and an intervention from identical seeds and weather. The solver uses earliest arrival between cells with a shared side. Cells near line geometry are subdivided, and a completed line blocks connectors that intersect it. Open ends allow detours and the model retains previously burned areas. A very short segment that fits between connectors can be represented by a nearby perpendicular edge. The grid resolution limits geographic precision.
 
-Scenario Insights reports both modeled areas, the difference, percent reduction, IoU, and direct blocking or subsequent bypass. The model treats completed lines as perfectly holding and omits embers, breaches, and construction failures. Perimeters follow grid cells and contact time is approximate. The original historical data stays available as a separate reference.
+Scenario Insights reports both modeled areas, the difference, percent reduction, IoU, and direct blocking or subsequent bypass. The model treats completed lines as perfectly holding and omits embers, breaches, and construction failures. Perimeters follow grid cells and contact time is approximate. The original historical data stays available as a separate reference. The first-day reconstruction uses archived hourly weather and stops at the first missing hour. Later surveyed perimeters retain their original timestamps. Counterfactual branches display their own modeled endpoint.
 
 ## Preparedness and official sources
 

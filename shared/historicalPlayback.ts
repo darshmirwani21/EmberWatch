@@ -1,10 +1,10 @@
 import { STEP, simulate, type Snapshot } from './engine';
 import { historyCases } from './history';
+import { DAY_HORIZON_MINUTES } from './simulationTime';
 import type { HistoricDataset, HistoricRecord } from './historyContracts';
 
 const minuteMs = 60_000;
 const hourMs = 60 * minuteMs;
-export const RECONSTRUCTION_MINUTES = 360;
 export const HISTORICAL_DRYNESS = .65;
 
 export function buildHistoricalPlayback(data: HistoricDataset) {
@@ -12,8 +12,8 @@ export function buildHistoricalPlayback(data: HistoricDataset) {
   const start = Date.parse(fire.started);
   const weather = new Map(data.weather.map((sample) => [Date.parse(sample.at), sample]));
   const contextAt = (time: number) => weather.get(Math.floor(time / hourMs) * hourMs);
-  const modelEnd = Array.from({ length: RECONSTRUCTION_MINUTES / STEP + 1 }, (_, index) => index * STEP)
-    .find((minute) => !contextAt(start + minute * minuteMs)) ?? RECONSTRUCTION_MINUTES;
+  const modelEnd = Array.from({ length: DAY_HORIZON_MINUTES / STEP + 1 }, (_, index) => index * STEP)
+    .find((minute) => !contextAt(start + minute * minuteMs)) ?? DAY_HORIZON_MINUTES;
   const startingWeather = contextAt(start);
   const atmospheric = (minute: number) => {
     const sample = contextAt(start + minute * minuteMs);
@@ -45,7 +45,13 @@ export function buildHistoricalPlayback(data: HistoricDataset) {
     const model = time <= start + modelEnd * minuteMs ? reconstruction[modeledMinute / STEP] : undefined;
     return { time, at: new Date(time).toISOString(), context: contextAt(time), recorded, newRecord, model };
   });
-  return { frames, modelEnd, reconstruction, timed: timed.map((entry) => entry.record), modelLimitedByWeather: modelEnd < RECONSTRUCTION_MINUTES };
+  return { frames, modelEnd, reconstruction, timed: timed.map((entry) => entry.record), modelLimitedByWeather: modelEnd < DAY_HORIZON_MINUTES };
+}
+
+export function historicalBranchDuration(ignitionAt: string, branchAt: string) {
+  const elapsed = (Date.parse(branchAt) - Date.parse(ignitionAt)) / minuteMs;
+  return elapsed >= DAY_HORIZON_MINUTES ? DAY_HORIZON_MINUTES :
+    Math.max(STEP, Math.floor((DAY_HORIZON_MINUTES - elapsed) / STEP) * STEP);
 }
 
 export type HistoricalPlayback = ReturnType<typeof buildHistoricalPlayback>;

@@ -202,5 +202,5 @@ test('Responder Lab shows line overlap and the expansion rate at the selected mi
   await minute.press('End');
   if (isMobile) await openMetrics();
   await expect(rate.getByText('Last expansion rate')).toBeVisible();
-  await expect(rate.getByText('Minutes 115–120 · modeled average')).toBeVisible();
+  await expect(rate.getByText('Minutes 1435–1440 · modeled average')).toBeVisible();
 });

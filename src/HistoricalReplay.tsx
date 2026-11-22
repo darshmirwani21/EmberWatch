@@ -4,15 +4,17 @@ import { Crosshair, Flame, GitBranch, History, Route, Sparkles, X } from 'lucide
 import { type BusinessAsset } from '../shared/businessContracts';
 import { indexBusinessExposure, measureBusinessExposure } from '../shared/businessExposure';
 import { type AgentProgress, type Coordinate, type Wind } from '../shared/contracts';
-import { contactLabel, coordinate, downwind, location, project } from '../shared/engine';
-import { type FirelineCandidate } from '../shared/firelineContracts';
+import { contactLabel, coordinate, downwind, location, project, STEP } from '../shared/engine';
+import { MAX_FIRELINE_STUDY_RADIUS_METERS, type FirelineCandidate } from '../shared/firelineContracts';
 import { acres, compareFootprints, matchedHistory, historicalWeatherUrl, historyCases, historyPolygon, historyTime, makeReplayStudy, recordTime, replayCandidate, replayLineContact, seedRadii, type ReplayShape } from '../shared/history';
 import { caseIds, historyDataset, type CaseId, type HistoricDataset } from '../shared/historyContracts';
 import { type HistoryAgentResult } from '../server/historyAgent';
-import { buildHistoricalPlayback, practiceOrigin, practiceSeed, RECONSTRUCTION_MINUTES, type PracticeSeed } from '../shared/historicalPlayback';
+import { buildHistoricalPlayback, practiceOrigin, practiceSeed, historicalBranchDuration, type PracticeSeed } from '../shared/historicalPlayback';
 import { BARRIER_ASSUMPTION, MAX_BARRIERS, type BarrierLine, type InterventionOptions } from '../shared/interventionContracts';
 import { historicalInterventionInput } from '../shared/historicalIntervention';
 import { interventionComparison, lineOutcome } from '../shared/interventionSimulation';
+import { DAY_HORIZON_MINUTES, EXTENDED_PLAYBACK_THRESHOLD_MINUTES, elapsedClock, playbackStride } from '../shared/simulationTime';
+import { InterventionHorizonSummary } from './InterventionHorizonSummary';
 import { useIntervention } from './useIntervention';
 import { SimulationDock } from './SimulationDock';
 import { defaultFirelineParameters, firelineStrategies, updateCandidateGeometry, validateCandidateLine } from './engine/firelineCandidates';
@@ -65,7 +67,7 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
   const [showModel, setShowModel] = useState(true);
   const [archiveId, setArchiveId] = useState('');
   const [wind, setWind] = useState<Wind>({ fromDeg: 90, speedMph: 20 });
-  const [duration, setDuration] = useState(120);
+  const [duration, setDuration] = useState(DAY_HORIZON_MINUTES);
   const [minute, setMinute] = useState(60);
   const [edit, setEdit] = useState<string>();
   const [vertex, setVertex] = useState<number>();
@@ -89,6 +91,9 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
   const playback = useMemo(() => data ? buildHistoricalPlayback(data) : undefined, [data]);
   const lastFrame = (playback?.frames.length ?? 1) - 1;
   const current = playback?.frames[frame];
+  const ignitionTime = Date.parse(fire.started);
+  const reconstructionEnd = useMemo(() => playback?.frames.findIndex((sample) => sample.time === ignitionTime + playback.modelEnd * 60_000) ?? 0,
+    [playback, ignitionTime]);
   const record = current?.recorded;
   const context = current?.context;
   const reconstruction = current?.model && current.model.minute > 0 ? current.model : undefined;
@@ -106,6 +111,7 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
   const run = useIntervention(JSON.stringify([active, id, seed?.at, duration, wind, options]), hasRun ? runInput : undefined);
   const paired = run.result;
   const comparison = paired ? interventionComparison(paired, elapsed) : undefined;
+  const finalComparison = useMemo(() => paired && interventionComparison(paired, paired.baseline.at(-1)!.minute), [paired]);
   const modelFitRadius = !seed && showModel && reconstruction ?
     [16_000, 8_000, 4_000].find((radius) => reconstruction.maxRadiusMeters >= radius) : undefined;
   const fit = useMemo<Coordinate[] | undefined>(() => {
@@ -156,11 +162,12 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
       if (playing) setPlaying(false);
       return;
     }
-    const interval = seed ? 800 : current.newRecord ? 1100 : current.model ? 205 : Math.max(60, 11500 / Math.max(1, lastFrame - 72));
+    const stride = playbackStride(speed);
+    const interval = seed ? 800 * stride : current.newRecord ? 1100 : current.model ? 205 : 60;
     const timer = window.setTimeout(() => {
-      if (seed) setMinute((value) => Math.min(duration, value + 5));
+      if (seed) setMinute((value) => Math.min(duration, value + stride * STEP));
       else setFrame((value) => Math.min(lastFrame, value + 1));
-    }, interval / speed);
+    }, Math.max(16, interval / speed));
     return () => window.clearTimeout(timer);
   }, [active, current, lastFrame, playing, frame, speed, seed, elapsed, duration, paired]);
 
@@ -175,7 +182,9 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
 
   function startBranch() {
     if (!current || seed || playing) return;
-    setHasRun(false); setPreviousEdit(undefined); setPlaying(false); setSeed(practiceSeed(current)); setMinute(0); setDuration(120);
+    const horizon = historicalBranchDuration(fire.started, current.at);
+    setHasRun(false); setPreviousEdit(undefined); setPlaying(false); setSeed(practiceSeed(current)); setMinute(0); setDuration(horizon);
+    if (horizon <= EXTENDED_PLAYBACK_THRESHOLD_MINUTES) setSpeed((previous) => Math.min(previous, 4));
     setWind({ speedMph: Math.min(100, context?.speedMph ?? 0), fromDeg: (context?.fromDeg ?? 0) % 360 });
     cancelEdit(); setCandidates([]); setBarriers([]); setManualWind(false); setShift(undefined); setTarget(undefined); setEvaluated(false); setNotice(undefined);
     selectLine(undefined);
@@ -191,6 +200,7 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
     const index = playback?.frames.findIndex((item) => item.at === saved?.seed.at) ?? -1;
     if (!saved || index < 0) return;
     setPlaying(false); setFrame(index); setSeed(saved.seed); setWind(saved.wind); setDuration(saved.duration); setMinute(saved.minute);
+    if (saved.duration <= EXTENDED_PLAYBACK_THRESHOLD_MINUTES) setSpeed((previous) => Math.min(previous, 4));
     setBarriers(saved.options.barriers); setManualWind(saved.options.manualWind); setShift(saved.options.shift); setTarget(saved.options.location); setCandidates(saved.candidates); setEvaluated(saved.evaluated); setShowLines(true); setShowBranch(true);
     cancelEdit(); showTool('lines');
   }
@@ -216,11 +226,11 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
   function finishLine() {
     try {
       if (edit === 'new') {
-        const geometry = validateCandidateLine(draft, fire.ignition, 25000);
+        const geometry = validateCandidateLine(draft, fire.ignition, MAX_FIRELINE_STUDY_RADIUS_METERS);
         const id = globalThis.crypto?.randomUUID?.() ?? 'line-' + Date.now().toString(36);
         setBarriers((items) => [...items, { id, readyMinute: 0, geometry }]); selectLine(id);
       } else if (barriers.some((item) => item.id === edit)) {
-        const geometry = validateCandidateLine(draft, fire.ignition, 25000);
+        const geometry = validateCandidateLine(draft, fire.ignition, MAX_FIRELINE_STUDY_RADIUS_METERS);
         setPreviousEdit(barriers.find((item) => item.id === edit));
         setBarriers((items) => items.map((item) => item.id === edit ? { ...item, geometry } : item));
       } else {
@@ -300,7 +310,9 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
   const scrub = (value: number) => { setPlaying(false); if (seed) setMinute(value); else setFrame(value); };
   const restart = () => { scrub(0); if (!seed) { setArchiveId(''); setCamera((value) => value + 1); } };
   function openAgent() { if (current) { viewMap(); setAgentOpen(true); } }
-  const timeline = <SimulationDock mobile={mobile} historical={{ value: seed ? elapsed : frame, label: historyTime(stamp),
+  const clockElapsed = seed ? elapsed : Math.floor(((current?.time ?? ignitionTime) - ignitionTime) / 60_000);
+  const timeline = <SimulationDock mobile={mobile} historical={{ value: seed ? elapsed : frame, label: historyTime(stamp) + ' · ' + elapsedClock(clockElapsed),
+    fastPlayback: !seed || duration > EXTENDED_PLAYBACK_THRESHOLD_MINUTES,
     step: seed ? 5 : 1, wind: clockWind, humidity: seed ? runInput?.weather[elapsed / 5].humidity : context?.humidity,
     actions: <><span className="replay-data-label" role="status">{run.error ?? (run.running ? 'Computing baseline and intervention…' : paired ? 'Intervention ready' : dataLabel)}</span>
       {!mobile && <button aria-label="Replay controls" onClick={() => showTool('replay')}>Replay controls</button>}
@@ -317,6 +329,8 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
     </select></label>
     <div className="button-row"><button onClick={viewMap}>View replay map</button><button onClick={close}>Return to hypothetical scenario</button></div>
     <p className="muted">{dataLabel}</p>
+    {!seed && reconstructionEnd > 0 && <button onClick={() => { setShowModel(true); scrub(reconstructionEnd); viewMap(); }}>
+      {playback?.modelLimitedByWeather ? 'Jump to last modeled sample' : 'Jump to modeled hour 24'}</button>}
     {!seed && savedPractices[id] && <button onClick={resumePractice}>Resume saved practice</button>}
     {seed && <div className="button-row"><button onClick={() => showTool('wind')}>Branch wind</button>
       <button onClick={() => showTool('firelines')}>Open branch firelines</button><button onClick={() => showTool('analysis')}>Branch analysis</button></div>}
@@ -354,9 +368,11 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
     <div className="history-layer-controls">{layers.map((layer) => <label key={layer.key} className="check">
       <input type="checkbox" checked={layer.enabled} onChange={layer.toggle}/>{layer.label}
     </label>)}</div>
-    <p className="muted">Reconstruction uses hourly wind and humidity for up to {RECONSTRUCTION_MINUTES / 60} hours after ignition and assumes 65% fuel dryness. {playback?.modelLimitedByWeather ? 'A gap in archived weather limits this run. ' : ''}Later coverage comes from recorded outlines when available.</p>
+    <p className="muted">Modeled reconstruction uses hourly wind and humidity for up to 24 hours after ignition and assumes 65% fuel dryness. {playback?.modelLimitedByWeather ? 'A gap in archived weather limits this run. ' : ''}Recorded outlines appear at their original survey times.</p>
   </Section>;
 
+  const branchEndTime = seed && historyTime(new Date(Date.parse(seed.at) + duration * 60_000).toISOString());
+  const branchHorizon = seed ? historicalBranchDuration(fire.started, seed.at) : DAY_HORIZON_MINUTES;
   const branchHint = <p className="muted">Pause Historical Replay and choose <strong>Practice Intervention</strong> to start training.</p>;
   const windPanel = <Section title="Intervention wind">
     {seed ? <>
@@ -365,10 +381,15 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
       <label className="check"><input type="checkbox" checked={manualWind} onChange={(event) => setManualWind(event.target.checked)}/>Override archived wind in both runs</label>
       <Slider label="Hypothetical wind FROM" value={wind.fromDeg} max={359} suffix="°" change={(fromDeg) => { setManualWind(true); setWind({ ...wind, fromDeg }); }}/>
       <Slider label="Hypothetical wind speed" value={wind.speedMph} max={100} suffix=" mph" change={(speedMph) => { setManualWind(true); setWind({ ...wind, speedMph }); }}/>
-      <label className="check"><input type="checkbox" checked={Boolean(shift)} onChange={(event) => setShift(event.target.checked ? { minute: 30, wind: { ...wind, fromDeg: (wind.fromDeg + 90) % 360 } } : undefined)}/>Apply wind shift to both runs</label>
+      <label className="check"><input type="checkbox" checked={Boolean(shift)} onChange={(event) => setShift(event.target.checked ? { minute: Math.min(30, duration), wind: { ...wind, fromDeg: (wind.fromDeg + 90) % 360 } } : undefined)}/>Apply wind shift to both runs</label>
       {shift && <><Slider label="Shift minute" value={shift.minute} max={duration} step={5} suffix=" min" change={(minute) => setShift({ ...shift, minute })}/>
         <Slider label="Shifted wind FROM" value={shift.wind.fromDeg} max={359} suffix="°" change={(fromDeg) => setShift({ ...shift, wind: { ...shift.wind, fromDeg } })}/></>}
-      <Slider label="Experiment horizon" value={duration} min={30} max={240} step={5} suffix=" min" change={(value) => setDuration(value)}/>
+      <Slider label="Experiment horizon" value={duration} min={Math.min(30, branchHorizon)} max={branchHorizon} step={STEP} suffix=" min" change={(value) => {
+        setDuration(value); setMinute((previous) => Math.min(previous, value));
+        setShift((previous) => previous && { ...previous, minute: Math.min(previous.minute, value) });
+        if (value <= EXTENDED_PLAYBACK_THRESHOLD_MINUTES) setSpeed((previous) => Math.min(previous, 4));
+      }}/>
+      <p className="muted">Both modeled runs end at {branchEndTime}.</p>
       {paired && <Slider label="Branch playback minute" value={elapsed} max={duration} step={5} suffix=" min" change={setMinute}/>}
       <button onClick={viewMap}>View updated map</button>
       {barriers.length > 0 && <button className="primary" disabled={run.running} onClick={runIntervention}>Run Intervention</button>}
@@ -400,7 +421,7 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
         {selectedCandidate && !selectedBarrier && <button disabled={barriers.length >= MAX_BARRIERS} onClick={() => {
           setBarriers((items) => [...items, { id: selectedCandidate.id, readyMinute: 0, geometry: selectedCandidate.geometry }]);
         }}>Use as barrier</button>}
-        {selectedBarrier && <Slider label="Barrier ready after" value={selectedBarrier.readyMinute} max={240} step={5} suffix=" min" change={(readyMinute) =>
+        {selectedBarrier && <Slider label="Barrier ready after" value={selectedBarrier.readyMinute} max={DAY_HORIZON_MINUTES} step={5} suffix=" min" change={(readyMinute) =>
           setBarriers((items) => items.map((item) => item.id === selected ? { ...item, readyMinute } : item))}/>}
         {selectedBarrier && previousEdit?.id === selectedBarrier.id && <button onClick={() => {
           setBarriers((items) => items.map((item) => item.id === selectedBarrier.id ? previousEdit : item)); setPreviousEdit(undefined);
@@ -437,7 +458,8 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
       <p className="muted">{BARRIER_ASSUMPTION}</p>
       {run.error ? <p role="alert">Intervention results could not be calculated. {run.error}</p> : run.running ? <p role="status">Computing baseline and intervention…</p> :
         !comparison && <p className="muted">Run Intervention from Fireline tools to compare both trajectories.</p>}
-      {comparison && <><p>Difference in modeled burned area under idealized barrier assumptions: <strong>{decimal(comparison.differenceAcres, 2)} ac</strong></p>
+      {comparison && <><p>{elapsed === duration ? 'Final sample' : 'Playback sample'} · {historyTime(stamp)}</p>
+        <p>Difference in modeled burned area under idealized barrier assumptions: <strong>{decimal(comparison.differenceAcres, 2)} ac</strong></p>
         <p>{comparison.activeBarrierCount} active {comparison.activeBarrierCount === 1 ? 'barrier' : 'barriers'} · {decimal(comparison.activeLengthMeters)} m · {comparison.cellMeters} m grid cells{comparison.cellMeters > 75 ? ' (coarsened to cover the study region)' : ''}{comparison.localCellMeters < comparison.cellMeters && ' · ' + decimal(comparison.localCellMeters, 1) + ' m near lines'}.</p>
         {comparison.lineContacts.map((line, index) => <p key={line.id}><strong>Line {index + 1}</strong> · {decimal(line.lengthMeters, 1)} m · {lineOutcome(line, elapsed)}. First modeled contact · baseline {formatContact(line.baseline)} · intervention {formatContact(line.intervention)}.</p>)}
         {target && <p>Selected location · baseline {formatContact(comparison.baselineContact)} · intervention {formatContact(comparison.interventionContact)}.
@@ -447,6 +469,7 @@ export function useHistoricalReplay({ active, initialCase, mobile, assets, close
               <div><small>Barrier intervention</small><strong>{decimal(comparison.interventionAcres)} ac</strong></div>
               <div><small>Model-to-model IoU</small><strong>{decimal(comparison.iou * 100, 2)}%</strong></div>
               <div><small>Modeled area reduction</small><strong>{decimal(comparison.reductionPercent, 2)}%</strong></div></div>}
+            {finalComparison && elapsed !== duration && branchEndTime && <InterventionHorizonSummary comparison={finalComparison} end={branchEndTime}/>}
             <Disclosure title="Historical validation and assumptions">
               {validation && independentSurvey ? <p>Matched at {recordTime(independentSurvey)}. Observed {decimal(validation.branch.observed)} ac.
                 Baseline IoU {decimal(validation.baseline.iou * 100, 1)}% · intervention IoU {decimal(validation.branch.iou * 100, 1)}%.</p> :

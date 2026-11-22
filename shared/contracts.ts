@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DAY_HORIZON_MINUTES, RESPONDER_HORIZON_MINUTES } from './simulationTime';
+import { DAY_HORIZON_MINUTES } from './simulationTime';
 import { businessContextSchema, type BusinessEvidence } from './businessContracts';
 
 // The Mercator workbench limits ignition latitude to keep modeled fronts inside the display.
@@ -15,19 +15,19 @@ export const positionSchema = z.tuple([pointSchema.shape.lng, pointSchema.shape.
 export const lineSchema = z.strictObject({
   id: z.string().regex(/^[\w-]{1,64}$/), name: z.string().trim().min(1).max(60),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/), type: z.enum(['Handline example','Road example','Fuel break example','Other example']),
-  completionMinute: z.number().int().min(0).max(RESPONDER_HORIZON_MINUTES).optional(),
+  completionMinute: z.number().int().min(0).max(DAY_HORIZON_MINUTES).optional(),
   coordinates: z.array(positionSchema).min(2).max(60),
 });
 export const requestSchema = z.strictObject({
   mode: z.enum(['civilian','responder','business']), question: z.string().trim().min(3).max(700),
   scenario: scenarioSchema, comparison: scenarioSchema.optional(), point: pointSchema.optional(),
   lines: z.array(lineSchema).max(8).optional(),
-  intervention: z.strictObject({ start: time.min(0).max(RESPONDER_HORIZON_MINUTES), minute: time.min(0).max(RESPONDER_HORIZON_MINUTES) }).optional(),
+  intervention: z.strictObject({ start: time.min(0).max(DAY_HORIZON_MINUTES), minute: time.min(0).max(DAY_HORIZON_MINUTES) }).optional(),
   business: businessContextSchema.optional(),
 }).refine((r) => (r.mode === 'responder' || !r.lines?.length) && (r.mode === 'civilian' || !r.point) &&
   (r.mode === 'business' ? !!r.business && r.business.minute <= r.scenario.durationMinutes : !r.business), 'Context must match the selected mode.')
   .refine((r) => !r.intervention || (r.mode === 'responder' && r.intervention.start < r.scenario.durationMinutes &&
-    r.scenario.durationMinutes <= RESPONDER_HORIZON_MINUTES && r.intervention.minute >= r.intervention.start &&
+    r.intervention.minute >= r.intervention.start &&
     r.intervention.minute <= r.scenario.durationMinutes), 'Select a sampled minute in the Responder intervention.')
   .refine((r) => !r.lines || new Set(r.lines.map((l) => l.id)).size === r.lines.length, 'Line IDs must be unique.')
   .refine((r) => !r.comparison || (

@@ -77,7 +77,10 @@ test('plays from ignition with aligned weather and presents recorded and archive
   await expect(controls.getByText(/No time-stamped perimeter progression/)).toBeVisible();
   await expect(clock).toHaveAttribute('aria-valuetext', /Sep 6, 2022, 6:00 PM PDT/);
   await expect(weather).not.toHaveText(parkWeather!);
-  await closeSheet(page,isMobile);
+  await controls.getByRole('button', { name: 'Jump to modeled hour 24' }).click();
+  await expect(clock).toHaveAttribute('aria-valuetext', /Sep 7, 2022, 6:00 PM PDT · 24:00/);
+  await expect(dock.getByText('Modeled Historical Reconstruction', { exact: true })).toBeVisible();
+  await dock.getByRole('button', { name: 'Restart timeline' }).click();
   await expect(dock.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
   await dock.getByRole('button', { name: 'Play', exact: true }).click();
   await expect(clock).not.toHaveValue('0');
@@ -113,7 +116,7 @@ test('plays from ignition with aligned weather and presents recorded and archive
 });
 
 test('keeps a historical branch and its lines across responder tools', async ({ page, isMobile }) => {
-  test.setTimeout(65_000);
+  test.setTimeout(90_000);
   await page.route('**/api/agent/history', async (route) => {
     expect(route.request().postDataJSON()).toMatchObject({ caseId: 'eaton', replayAt: '2025-01-10T14:22:09.000Z', practicing: true, workflow: 'barrier', minute: 0 });
     return route.fulfill({ contentType: 'application/x-ndjson', body: JSON.stringify({ event: 'result', data: {
@@ -156,7 +159,7 @@ test('keeps a historical branch and its lines across responder tools', async ({ 
   await page.getByRole('button', { name: 'Finish line', exact: true }).click();
   await expect(lengthLabel).not.toHaveText(oldLength!);
   await page.getByRole('button', { name: 'Run Intervention', exact: true }).click();
-  await expect(page.getByText('Intervention ready', { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('Intervention ready', { exact: true })).toBeVisible({ timeout: 40_000 });
   await page.getByRole('button', { name: 'Analysis', exact: true }).click();
   if (isMobile) await expect(page.getByText('Model-to-model IoU', { exact: true })).toBeVisible();
   else await expect(page.getByRole('complementary', { name: 'Scenario controls' }).getByText('Model-to-model IoU', { exact: true })).toBeVisible();

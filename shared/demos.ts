@@ -1,16 +1,17 @@
 import type { ControlLine, Point, Scenario } from './contracts';
 import { project } from './engine';
+import { DAY_HORIZON_MINUTES } from './simulationTime';
 
 const south: Scenario = {
-  ignition: { lat: 34.150, lng: -118.550 }, durationMinutes: 120, wind: { speedMph: 24, fromDeg: 315 },
+  ignition: { lat: 34.150, lng: -118.550 }, durationMinutes: DAY_HORIZON_MINUTES, wind: { speedMph: 24, fromDeg: 315 },
   humidity: 22, dryness: .85, shift: { minute: 35, wind: { fromDeg: 180, speedMph: 32 } },
 };
 const santa: Scenario = {
-  ignition: { lat: 38.470, lng: -122.720 }, durationMinutes: 120, wind: { speedMph: 30, fromDeg: 315 },
+  ignition: { lat: 38.470, lng: -122.720 }, durationMinutes: DAY_HORIZON_MINUTES, wind: { speedMph: 30, fromDeg: 315 },
   humidity: 18, dryness: .90, shift: { minute: 35, wind: { fromDeg: 180, speedMph: 32 } },
 };
 const sierra: Scenario = {
-  ignition: { lat: 38.900, lng: -121.070 }, durationMinutes: 120, wind: { speedMph: 10, fromDeg: 270 },
+  ignition: { lat: 38.900, lng: -121.070 }, durationMinutes: DAY_HORIZON_MINUTES, wind: { speedMph: 10, fromDeg: 270 },
   humidity: 55, dryness: .40,
 };
 function demoLine(origin: Point, id: 'A' | 'B', angle: number, meters: number): ControlLine {
